@@ -48,13 +48,7 @@ def norm01(vals: np.ndarray) -> np.ndarray:
 def topo_map(ax, x, y, vals, fig=None, cmap="coolwarm", n_fill=20, n_lines=5,
              lw=0.8, label_fmt="%.2f", colorbar_label="", add_colorbar=True,
              grid_res=100, mask_factor=1.8, normalize=True):
-    """Filled contour map with labeled contour lines over scattered (x, y, vals).
-
-    Grid points farther than `mask_factor` times the median spot spacing from any
-    real spot are masked out (NaN), so the fill never bleeds into gaps where there's
-    no actual tissue. `normalize` min-max scales `vals` to [0, 1] first so different
-    quantities (isodepth, activations, ...) share one comparable color scale.
-    """
+    """Filled contour map with labeled contour lines over scattered (x, y, vals)."""
     if normalize:
         vals = norm01(np.asarray(vals, dtype=np.float64))
 
