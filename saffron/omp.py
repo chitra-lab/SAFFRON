@@ -46,8 +46,7 @@ def omp_r2_curve(
 ) -> OMPCurveResult:
     """Cross-validated R^2 of OMP reconstruction of τ from H, for k=1..max_features.
 
-    Also fits a RidgeCV model using all M features as a dense reference (how much
-    reconstruction quality is achievable in principle vs with a sparse subset).
+    Also fits a RidgeCV model using all M features as a dense reference
     """
     Hs, ts = _standardize(H, tau)
     max_features = min(max_features, Hs.shape[1])
@@ -66,14 +65,7 @@ def omp_r2_curve(
 
 
 def omp_select(H: np.ndarray, tau: np.ndarray, max_features: int = 20) -> OMPSelection:
-    """Fit OMP once at `max_features` and recover the greedy feature-selection order.
-
-    Refits OMP at every k=1..max_features (in-sample) and records, at each step, the
-    single new feature index that entered the solution — this is the standard way to
-    recover OMP's greedy order since `n_nonzero_coefs=k` is not guaranteed to return a
-    strict superset of the `k-1` solution, but in practice does so almost always for
-    well-separated sparse signals.
-    """
+    """Fit OMP once at `max_features` and recover the greedy feature-selection order."""
     Hs, ts = _standardize(H, tau)
     max_features = min(max_features, Hs.shape[1])
 
