@@ -7,7 +7,7 @@ decompose embeddings into sparse, human-interpretable features.
 
 Given (1) a set of embeddings `Z` (from an SFM, a single-cell FM, or even raw gene
 expression) and (2) a known measure of spatial variation `τ` for the same cells
-(e.g. a 1-D isodepth axis, a disease-signature score, distance to a pathological
+(e.g. a 1-D spatial axis, a disease-signature score, distance to a pathological
 feature), SAFFRON trains a sparse autoencoder on `Z` and evaluates which of its
 learned features track `τ`.
 
