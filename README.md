@@ -33,6 +33,5 @@ orthogonal matching pursuit (OMP) to find a minimal reconstructing subset.
 `pip install -e .` installs the core library (numpy, scipy, scikit-learn, torch).
 Optional extras:
 
-- `pip install -e ".[io]"` — adds `anndata`, for loading embeddings from `.h5ad`.
 - `pip install -e ".[demo]"` — adds everything `notebooks/demo.ipynb` needs (`anndata`,
   `matplotlib`, `statsmodels`, `jupyter`, `ipykernel`).
