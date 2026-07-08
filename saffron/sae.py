@@ -38,11 +38,7 @@ def topk_sparsify(h: torch.Tensor, k: int):
 
 
 def batchtopk_sparsify(h: torch.Tensor, k: int):
-    """Keep only the top k*batch_size values globally across the batch; zero the rest.
-
-    Unlike per-sample TopK, the budget k*B is shared across all samples so some
-    spots may fire more or fewer than k neurons depending on activation magnitude.
-    """
+    """Keep only the top k*batch_size values globally across the batch; zero the rest."""
     B, M = h.shape
     total_k = min(k * B, B * M)
     flat = h.reshape(-1)
