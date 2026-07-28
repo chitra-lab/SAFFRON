@@ -156,7 +156,19 @@ def _moving_avg_trend(x: np.ndarray, y: np.ndarray, frac: float = 0.35):
     return xs, trend
 
 
-def plot_gene_tracks(rows: list[dict], cmap: str = "viridis", dot_size: float = 14,
+def _auto_dot_size(ax, spatial: np.ndarray, fill_frac: float = 0.85) -> float:
+    """Marker size (points^2) so neighboring points in `spatial` fill `fill_frac` of the gap
+    between them, based on the axes' current data-to-points scale and the median
+    nearest-neighbor spacing."""
+    spacing = np.median(NearestNeighbors(n_neighbors=2).fit(spatial).kneighbors(spatial)[0][:, 1])
+    p0 = ax.transData.transform((0, 0))
+    p1 = ax.transData.transform((spacing, 0))
+    px_per_unit = np.hypot(*(p1 - p0))
+    pts_per_unit = px_per_unit * 72.0 / ax.figure.dpi
+    return (fill_frac * pts_per_unit) ** 2
+
+
+def plot_gene_tracks(rows: list[dict], cmap: str = "viridis", dot_size: float | None = None,
                       trend_frac: float = 0.35, figsize: tuple | None = None,
                       suptitle: str | None = None):
     """One row per entry of `rows`: a spatial scatter of expression, plus a scatter and
@@ -164,6 +176,8 @@ def plot_gene_tracks(rows: list[dict], cmap: str = "viridis", dot_size: float = 
 
     Each entry is a dict with keys `label`, `spatial` (N, 2), `expr` (N,), and `axes`
     (an ordered dict of axis-label -> (N,) array, e.g. `{"isodepth": ..., "reconstructed axis": ...}`).
+    `dot_size`, if not given, is chosen automatically per row from the spacing of `spatial`
+    so neighboring points don't overlap.
     """
     import matplotlib.pyplot as plt
 
@@ -180,9 +194,14 @@ def plot_gene_tracks(rows: list[dict], cmap: str = "viridis", dot_size: float = 
 
         ax = axes[r, 0]
         spatial = row["spatial"]
-        sc = ax.scatter(spatial[:, 0], spatial[:, 1], c=vals, cmap=cmap, vmin=0, vmax=1,
-                         s=dot_size, linewidths=0)
         ax.set_aspect("equal")
+        pad = 0.02 * max(np.ptp(spatial[:, 0]), np.ptp(spatial[:, 1]))
+        ax.set_xlim(spatial[:, 0].min() - pad, spatial[:, 0].max() + pad)
+        ax.set_ylim(spatial[:, 1].min() - pad, spatial[:, 1].max() + pad)
+        fig.canvas.draw()
+        size = dot_size if dot_size is not None else _auto_dot_size(ax, spatial)
+        sc = ax.scatter(spatial[:, 0], spatial[:, 1], c=vals, cmap=cmap, vmin=0, vmax=1,
+                         s=size, linewidths=0)
         ax.axis("off")
         ax.set_title(row["label"], fontsize=11, fontweight="bold", color=color, loc="left")
         fig.colorbar(sc, ax=ax, shrink=0.75)

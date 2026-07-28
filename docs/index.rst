@@ -16,13 +16,13 @@ reconstructing subset with orthogonal matching pursuit (OMP).
     :alt: SAFFRON overview
     :width: 900px
     :align: center
+    :class: overview-figure
 
 Getting started with SAFFRON
 -----------------------------
 - Browse :doc:`notebooks/tutorials/index` for two worked examples: a **global**
   spatial gradient, and **local** microenvironment measures.
 - See :doc:`installation` to install.
-- See :doc:`api` for the full API reference.
 - Discuss usage and issues on `github <https://github.com/chitra-lab/SAFFRON>`_.
 
 .. toctree::
@@ -31,7 +31,6 @@ Getting started with SAFFRON
     :hidden:
 
     installation
-    api
 
 .. toctree::
     :caption: Tutorials

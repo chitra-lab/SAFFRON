@@ -18,19 +18,16 @@ git clone https://github.com/chitra-lab/SAFFRON && cd SAFFRON
 pip install -e .
 ```
 
-Two interactive walkthroughs:
+## Getting started
 
-- `notebooks/global_spatial_variation_tutorial.ipynb` — Novae embeddings on the colorectal tumor
-  dataset. Learn (i) how to train a Matryoshka SAE on SFM embeddings to learn sparse,
-  interpretable features with SAFFRON, and (ii) how to evaluate those features
-  against a **global** spatial-variation measure (a 1-D tumor-to-stroma axis) —
-  correlating each feature with the measure and using orthogonal matching pursuit
-  (OMP) to find a minimal reconstructing subset. Also checks the SAE features
-  against raw gene expression by running the same correlation directly on genes.
-- `notebooks/local_spatial_variation_tutorial.ipynb` — MERFISH Alzheimer's brain dataset. The
-  same evaluation applied to **local** microenvironment measures around amyloid-β
-  plaques instead of a global gradient, comparing a gene-expression SAE against a
-  SFM's SAE.
+Check out our [readthedocs](https://saffron-sae.readthedocs.io/en/latest/index.html), which
+includes tutorials for two analyses:
+- `notebooks/global_spatial_variation_tutorial.ipynb` — **Spatial gradients in the colorectal
+  tumor-stroma boundary.** Novae embeddings on 10x Visium data, evaluated against a **global**
+  1-D tumor-to-stroma gradient, including a check of the SAE features against raw gene expression.
+- `notebooks/local_spatial_variation_tutorial.ipynb` — **Local microenvironment variation around
+  Aβ plaques (MERFISH).** Compares a gene-expression SAE against a SFM's SAE on **local**
+  microenvironment measures in an Alzheimer's disease brain dataset.
 
 ## 📦 Dependencies
 
