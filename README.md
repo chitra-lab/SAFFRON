@@ -14,24 +14,26 @@ learned features track `τ`.
 ## 🚀 Quick Start
 
 ```bash
-git clone <this-repo> && cd SAFFRON
-pip install -e ".[demo]"   # core library + everything notebooks/demo.ipynb needs
+git clone https://github.com/chitra-lab/SAFFRON && cd SAFFRON
+pip install -e .
 ```
 
-We provide a complete interactive walkthrough in the notebook using the Novae
-embeddings on the colorectal tumor dataset:
+Two interactive walkthroughs:
 
-See `notebooks/demo.ipynb` to learn
-(i) how to train a Matryoshka SAE on SFM embeddings to learn sparse, interpretable
-features with SAFFRON, and
-(ii) how to evaluate those features against a known spatial-variation measure (e.g.
-a 1-D tumor-to-stroma axis) — correlating each feature with the measure and using
-orthogonal matching pursuit (OMP) to find a minimal reconstructing subset.
+- `notebooks/global_spatial_variation_tutorial.ipynb` — Novae embeddings on the colorectal tumor
+  dataset. Learn (i) how to train a Matryoshka SAE on SFM embeddings to learn sparse,
+  interpretable features with SAFFRON, and (ii) how to evaluate those features
+  against a **global** spatial-variation measure (a 1-D tumor-to-stroma axis) —
+  correlating each feature with the measure and using orthogonal matching pursuit
+  (OMP) to find a minimal reconstructing subset. Also checks the SAE features
+  against raw gene expression by running the same correlation directly on genes.
+- `notebooks/local_spatial_variation_tutorial.ipynb` — MERFISH Alzheimer's brain dataset. The
+  same evaluation applied to **local** microenvironment measures around amyloid-β
+  plaques instead of a global gradient, comparing a gene-expression SAE against an
+  SFM's SAE.
 
 ## 📦 Dependencies
 
-`pip install -e .` installs the core library (numpy, scipy, scikit-learn, torch).
-Optional extras:
-
-- `pip install -e ".[demo]"` — adds everything `notebooks/demo.ipynb` needs (`anndata`,
-  `matplotlib`, `statsmodels`, `jupyter`, `ipykernel`).
+`pip install -e .` installs everything needed for the core SAFFRON pipeline and
+both notebooks (numpy, scipy, scikit-learn, torch, anndata, matplotlib, jupyter,
+ipykernel).
