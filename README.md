@@ -5,7 +5,7 @@ transcriptomics foundation model (SFM) embeddings capture known sources of spati
 variation in gene expression, using a Matryoshka sparse autoencoder (SAE) to
 decompose embeddings into sparse, human-interpretable features.
 
-Given (1) a set of embeddings `Z` (from an SFM, a single-cell FM, or even raw gene
+Given (1) a set of embeddings `Z` (from an SFM, a single-cell FM, or even gene
 expression) and (2) a known measure of spatial variation `τ` for the same cells
 (e.g. a 1-D spatial axis, a disease-signature score, distance to a pathological
 feature), SAFFRON trains a sparse autoencoder on `Z` and evaluates which of its
@@ -29,7 +29,7 @@ Two interactive walkthroughs:
   against raw gene expression by running the same correlation directly on genes.
 - `notebooks/local_spatial_variation_tutorial.ipynb` — MERFISH Alzheimer's brain dataset. The
   same evaluation applied to **local** microenvironment measures around amyloid-β
-  plaques instead of a global gradient, comparing a gene-expression SAE against an
+  plaques instead of a global gradient, comparing a gene-expression SAE against a
   SFM's SAE.
 
 ## 📦 Dependencies
