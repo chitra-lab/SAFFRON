@@ -99,6 +99,12 @@ def proportional_matryoshka_weights(nested_dims: list[int]) -> list[float]:
     return [math.sqrt(m) / total for m in nested_dims]
 
 
+def equal_matryoshka_weights(nested_dims: list[int]) -> list[float]:
+    """Equal Matryoshka weights: every nested scale contributes the same weight
+    to the loss, regardless of its size."""
+    return [1.0 / len(nested_dims)] * len(nested_dims)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Model
 # ─────────────────────────────────────────────────────────────────────────────
@@ -106,21 +112,22 @@ def proportional_matryoshka_weights(nested_dims: list[int]) -> list[float]:
 class SparseAutoencoder(nn.Module):
     """Weight-tied (Batch)TopK sparse autoencoder with optional Matryoshka training.
 
-    Encoder : h = ReLU(x W^T + b_enc)
-    Decoder : x_hat = z W_dec^T + b_dec     (W_dec is W, optionally unit-normed per row)
+    Encoder: ``h = ReLU(x W^T + b_enc)``.
+    Decoder: ``x_hat = z W_dec^T + b_dec`` (``W_dec`` is ``W``, optionally unit-normed per row).
 
-    sparsity_mode:
-      "topk"      — exactly k active features per sample.
-      "batchtopk" — a budget of k*batch_size active entries shared across the batch
-                    (the default).
-      "kl"        — soft ReLU activations during training with a Bernoulli KL sparsity
-                    penalty; hard top-(rho*M) gating at inference time.
-      "l1"        — soft ReLU activations with an L1 penalty on the code.
+    ``sparsity_mode`` is one of:
 
-    matryoshka_dims: e.g. [64, 128, 256] where 256 == latent_dim. When set, nested
-    prefixes of the code are trained to reconstruct the input independently (each
-    with its own decoder bias), so early dimensions of the code capture coarse,
-    dominant sources of variation and later dimensions capture fine-grained variation.
+    - ``"topk"``: exactly k active features per sample.
+    - ``"batchtopk"``: a budget of k*batch_size active entries shared across the batch
+      (the default).
+    - ``"kl"``: soft ReLU activations during training with a Bernoulli KL sparsity
+      penalty; hard top-(rho*M) gating at inference time.
+    - ``"l1"``: soft ReLU activations with an L1 penalty on the code.
+
+    ``matryoshka_dims``, e.g. ``[64, 128, 256]`` where ``256 == latent_dim``: when set,
+    nested prefixes of the code are trained to reconstruct the input independently (each
+    with its own decoder bias), so early dimensions of the code capture coarse, dominant
+    sources of variation and later dimensions capture fine-grained variation.
     """
 
     def __init__(
@@ -155,7 +162,7 @@ class SparseAutoencoder(nn.Module):
             self.matryoshka_dims = sorted(matryoshka_dims)
             self.matryoshka_weights = (
                 list(matryoshka_weights) if matryoshka_weights is not None
-                else proportional_matryoshka_weights(nested)
+                else equal_matryoshka_weights(nested)
             )
             if matryoshka_weights is not None:
                 assert len(matryoshka_weights) == len(nested), \
@@ -268,9 +275,10 @@ class SparseAutoencoder(nn.Module):
 
 @dataclass
 class SAEResult:
-    """Everything produced by :func:`train_sae`."""
-    model: SparseAutoencoder
+    """Everything produced by :func:`train_sae`. `model` is None when `Z` was loaded from a
+    cache instead of trained (see `SAFFRON.fit(..., features_key=...)`)."""
     Z: np.ndarray                      # (N, latent_dim) sparse codes for the full input
+    model: SparseAutoencoder | None = None
     history: dict = field(default_factory=dict)
     train_idx: np.ndarray = None
     val_idx: np.ndarray = None
@@ -489,7 +497,7 @@ def train_sae(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Checkpointing (no plotting/figure code — that stays in downstream analysis code)
+# Checkpointing
 # ─────────────────────────────────────────────────────────────────────────────
 
 def save_checkpoint(model: SparseAutoencoder, path: str) -> None:

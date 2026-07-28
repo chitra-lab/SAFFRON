@@ -1,7 +1,7 @@
 """
 saffron.utils
 =============
-AnnData loaders and small plotting utilities used by demo.ipynb.
+AnnData loaders and small data/plotting utilities for spatial features and gene expression.
 """
 
 from __future__ import annotations
@@ -39,6 +39,28 @@ def rotate_by_theta(coords: np.ndarray, theta: float) -> np.ndarray:
     return (rotation_matrix @ coords.T).T
 
 
+def select_domains(adata, domains: list, domain_key: str = "domain"):
+    """Subset `adata` to rows whose `domain_key` is in `domains`."""
+    return adata[adata.obs[domain_key].isin(domains)].copy()
+
+
+def to_dense(X) -> np.ndarray:
+    """Convert `X` to a dense `np.ndarray`, densifying first if it's a scipy sparse matrix."""
+    return np.asarray(X.todense()) if hasattr(X, "todense") else np.asarray(X)
+
+
+def gene_row(adata, gene: str, tau_key: str = "isodepth", spatial_key: str = "spatial",
+             reconstructed: np.ndarray | None = None) -> dict:
+    """Build one `plot_gene_tracks` row for `gene`'s expression in `adata`, against
+    `adata.obs[tau_key]` and, if given, a `reconstructed` axis array."""
+    idx = list(adata.var_names).index(gene)
+    expr = to_dense(adata.X[:, idx]).ravel()
+    axes = {tau_key: adata.obs[tau_key].values}
+    if reconstructed is not None:
+        axes["reconstructed axis"] = reconstructed
+    return {"label": gene, "spatial": adata.obsm[spatial_key], "expr": expr, "axes": axes}
+
+
 def norm01(vals: np.ndarray) -> np.ndarray:
     """Min-max normalize to [0, 1] so different quantities share one color scale."""
     lo, hi = vals.min(), vals.max()
@@ -64,7 +86,7 @@ def topo_map(ax, x, y, vals, fig=None, cmap="coolwarm", n_fill=20, n_lines=5,
     Zi[dists > mask_factor * med_spacing] = np.nan
     Zi = np.ma.masked_invalid(Zi)
 
-    cf = ax.contourf(Xi, Yi, Zi, levels=n_fill, cmap=cmap)
+    cf = ax.contourf(Xi, Yi, Zi, levels=n_fill, cmap=cmap, extend="both")
     if n_lines > 0:
         CS = ax.contour(Xi, Yi, Zi, levels=n_lines, colors="k", linewidths=lw, linestyles="solid")
         ax.clabel(CS, CS.levels, inline=True, fontsize=6, fmt=label_fmt)
@@ -73,3 +95,126 @@ def topo_map(ax, x, y, vals, fig=None, cmap="coolwarm", n_fill=20, n_lines=5,
     if add_colorbar and fig is not None:
         fig.colorbar(cf, ax=ax, shrink=0.75, label=colorbar_label)
     return cf
+
+
+def plot_spatial_grid(adata, panels: dict, spatial_key: str = "spatial", cmap: str = "coolwarm",
+                       figsize: tuple | None = None, suptitle: str | None = None):
+    """Plot one `topo_map` per entry of `panels` (title -> per-cell values), side by side."""
+    import matplotlib.pyplot as plt
+
+    x, y = adata.obsm[spatial_key][:, 0], adata.obsm[spatial_key][:, 1]
+    n = len(panels)
+    fig, axes = plt.subplots(1, n, figsize=figsize or (4 * n, 4))
+    axes = [axes] if n == 1 else axes
+    for ax, (title, vals) in zip(axes, panels.items()):
+        topo_map(ax, x, y, np.asarray(vals), fig=fig, cmap=cmap, colorbar_label=title)
+        ax.set_title(title, fontsize=10)
+    if suptitle:
+        fig.suptitle(suptitle, fontsize=11, y=1.02)
+    plt.tight_layout()
+    return fig, axes
+
+
+def plot_spatial_scatter(adata, panels: dict, spatial_key: str = "spatial", cmap: str = "viridis",
+                          markers: np.ndarray | None = None, dot_size: float = 18,
+                          figsize: tuple | None = None, suptitle: str | None = None):
+    """Per-cell scatter of `panels` (title -> per-cell values), side by side.
+
+    `markers`, if given, is an (M, 2) array of extra point coordinates (e.g. plaque centroids)
+    overlaid as red crosses on every panel.
+    """
+    import matplotlib.pyplot as plt
+
+    x, y = adata.obsm[spatial_key][:, 0], adata.obsm[spatial_key][:, 1]
+    n = len(panels)
+    fig, axes = plt.subplots(1, n, figsize=figsize or (4 * n, 4))
+    axes = [axes] if n == 1 else axes
+    for ax, (title, vals) in zip(axes, panels.items()):
+        vals = norm01(np.asarray(vals, dtype=np.float64))
+        sc = ax.scatter(x, y, c=vals, cmap=cmap, vmin=0, vmax=1, s=dot_size, linewidths=0, zorder=2)
+        if markers is not None and len(markers):
+            ax.scatter(markers[:, 0], markers[:, 1], marker="x", c="white", s=250, linewidths=5, zorder=4)
+            ax.scatter(markers[:, 0], markers[:, 1], marker="x", c="red", s=140, linewidths=3, zorder=5)
+        ax.set_aspect("equal")
+        ax.axis("off")
+        ax.set_title(title, fontsize=10)
+        fig.colorbar(sc, ax=ax, shrink=0.75, label=title)
+    if suptitle:
+        fig.suptitle(suptitle, fontsize=11, y=1.02)
+    plt.tight_layout()
+    return fig, axes
+
+
+def _moving_avg_trend(x: np.ndarray, y: np.ndarray, frac: float = 0.35):
+    """Sort by `x` and smooth `y` with a centered moving average over a `frac` fraction
+    of the points; returns (sorted_x, smoothed_y)."""
+    order = np.argsort(x)
+    xs, ys = x[order], y[order]
+    window = max(3, int(round(frac * len(xs))) | 1)
+    half = window // 2
+    trend = np.array([ys[max(0, i - half):i + half + 1].mean() for i in range(len(xs))])
+    return xs, trend
+
+
+def plot_gene_tracks(rows: list[dict], cmap: str = "viridis", dot_size: float = 14,
+                      trend_frac: float = 0.35, figsize: tuple | None = None,
+                      suptitle: str | None = None):
+    """One row per entry of `rows`: a spatial scatter of expression, plus a scatter and
+    moving-average trend line against every array in that entry's `axes`.
+
+    Each entry is a dict with keys `label`, `spatial` (N, 2), `expr` (N,), and `axes`
+    (an ordered dict of axis-label -> (N,) array, e.g. `{"isodepth": ..., "reconstructed axis": ...}`).
+    """
+    import matplotlib.pyplot as plt
+
+    n_rows = len(rows)
+    n_axes = len(rows[0]["axes"])
+    n_cols = 1 + n_axes
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize or (3.6 * n_cols, 3.0 * n_rows))
+    axes = np.atleast_2d(axes)
+    colors = plt.get_cmap("tab10").colors
+
+    for r, row in enumerate(rows):
+        color = colors[r % len(colors)]
+        vals = norm01(np.asarray(row["expr"], dtype=np.float64))
+
+        ax = axes[r, 0]
+        spatial = row["spatial"]
+        sc = ax.scatter(spatial[:, 0], spatial[:, 1], c=vals, cmap=cmap, vmin=0, vmax=1,
+                         s=dot_size, linewidths=0)
+        ax.set_aspect("equal")
+        ax.axis("off")
+        ax.set_title(row["label"], fontsize=11, fontweight="bold", color=color, loc="left")
+        fig.colorbar(sc, ax=ax, shrink=0.75)
+
+        for c, (axis_label, xvals) in enumerate(row["axes"].items(), start=1):
+            axc = axes[r, c]
+            xvals = np.asarray(xvals, dtype=np.float64)
+            axc.scatter(xvals, vals, s=8, alpha=0.35, color=color, linewidths=0)
+            xt, yt = _moving_avg_trend(xvals, vals, frac=trend_frac)
+            axc.plot(xt, yt, color=color, lw=2)
+            axc.set_xlabel(axis_label)
+            axc.set_ylim(-0.05, 1.05)
+            if c == 1:
+                axc.set_ylabel("expression (normalized)")
+            axc.spines[["top", "right"]].set_visible(False)
+
+    if suptitle:
+        fig.suptitle(suptitle, fontsize=12, y=1.01)
+    plt.tight_layout()
+    return fig, axes
+
+
+def plot_omp_curve(curve, tau_label: str = "τ", figsize: tuple = (5.5, 4.5)):
+    """Plot cross-validated R2 vs. number of OMP features, against a dense RidgeCV reference."""
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.plot(curve.k_values, curve.r2, "o-", color="#2166AC", label="OMP (sparse)")
+    ax.axhline(curve.ridge_r2, color="#888888", ls="--", label="RidgeCV (all features)")
+    ax.set_xlabel("Number of SAE features (k)")
+    ax.set_ylabel(f"Cross-validated R² with {tau_label}")
+    ax.set_ylim(0, 1)
+    ax.legend(fontsize=9)
+    ax.spines[["top", "right"]].set_visible(False)
+    return fig, ax

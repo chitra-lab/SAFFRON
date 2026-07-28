@@ -1,8 +1,8 @@
 """
 saffron.omp
 ===========
-Identify a minimal set of SAE features that linearly reconstruct a known measure
-of spatial variation, via orthogonal matching pursuit (OMP).
+Identify a minimal set of features (from any (N, M) feature matrix) that linearly
+reconstruct a known measure of spatial variation, via orthogonal matching pursuit (OMP).
 """
 
 from __future__ import annotations
@@ -30,6 +30,14 @@ class OMPSelection:
     r2: float                      # in-sample R2 of the final fit at max_features
 
 
+@dataclass
+class OMPReconstruction:
+    selected_features: list[int]   # the k feature indices OMP chose
+    coefficients: np.ndarray       # (k,) coefficient for each, same order
+    r2: float                      # in-sample R2 of this k-feature fit
+    reconstructed: np.ndarray      # (N,) predicted tau from these k features, in tau's original units
+
+
 def _standardize(H: np.ndarray, tau: np.ndarray):
     Hs = StandardScaler().fit_transform(np.asarray(H, dtype=np.float64))
     ts = np.asarray(tau, dtype=np.float64)
@@ -46,7 +54,7 @@ def omp_r2_curve(
 ) -> OMPCurveResult:
     """Cross-validated R^2 of OMP reconstruction of τ from H, for k=1..max_features.
 
-    Also fits a RidgeCV model using all M features as a dense reference
+    Also fits a RidgeCV model using all M features as a dense reference.
     """
     Hs, ts = _standardize(H, tau)
     max_features = min(max_features, Hs.shape[1])
@@ -89,3 +97,21 @@ def omp_select(H: np.ndarray, tau: np.ndarray, max_features: int = 20) -> OMPSel
     r2 = float(r2_score(ts, final_omp.predict(Hs)))
 
     return OMPSelection(selected_features=ordered, coefficients=coef, r2=r2)
+
+
+def omp_reconstruct(H: np.ndarray, tau: np.ndarray, k: int) -> OMPReconstruction:
+    """Fit OMP with exactly `k` features and reconstruct tau in its original units."""
+    tau = np.asarray(tau, dtype=np.float64)
+    Hs, ts = _standardize(H, tau)
+    k = min(k, Hs.shape[1])
+
+    omp = OrthogonalMatchingPursuit(n_nonzero_coefs=k, fit_intercept=True)
+    omp.fit(Hs, ts)
+    pred_std = omp.predict(Hs)
+
+    selected = list(np.where(omp.coef_ != 0)[0])
+    coef = omp.coef_[selected]
+    r2 = float(r2_score(ts, pred_std))
+    reconstructed = pred_std * (tau.std() + 1e-12) + tau.mean()
+
+    return OMPReconstruction(selected_features=selected, coefficients=coef, r2=r2, reconstructed=reconstructed)

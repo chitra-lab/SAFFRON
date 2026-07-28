@@ -1,7 +1,8 @@
 """
 saffron.correlate
 ==================
-Correlate SAE-learned features against a known measure of spatial variation.
+Correlate a feature matrix (SAE features, gene expression, or any other (N, M) matrix)
+against a known measure of spatial variation.
 """
 
 from __future__ import annotations
@@ -42,11 +43,12 @@ def spearman_scan(
     restrict_support: bool = True,
     min_support: int = 10,
 ) -> CorrelationResult:
-    """Compute the Spearman correlation between every SAE feature (column of H) and τ.
+    """Compute the Spearman correlation between every column of H and τ.
 
     Parameters
     ----------
-    H : (N, M) sparse SAE feature matrix (e.g. `SAEResult.Z`).
+    H : (N, M) feature matrix — SAE features (e.g. `SAEResult.Z`), gene expression, or
+        any other per-cell feature matrix.
     tau : (N,) known measure of spatial variation (e.g. an isodepth axis, a disease
         signature score).
     restrict_support : if True (default), each feature's correlation is computed
@@ -81,3 +83,8 @@ def spearman_scan(
         rho=rho, best_feature=best_feature, best_rho=float(rho[best_feature]),
         support_size=support_size,
     )
+
+
+def top_features(result: CorrelationResult, n: int = 5) -> np.ndarray:
+    """Indices of the `n` features with the largest absolute rho, descending."""
+    return np.argsort(np.abs(result.rho))[::-1][:n]
