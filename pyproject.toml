@@ -19,5 +19,18 @@ dependencies = [
     "ipykernel",
 ]
 
+[project.optional-dependencies]
+docs = [
+    "sphinx>=5.3",
+    "sphinx-autodoc-typehints>=1.10.3",
+    "sphinx_rtd_theme",
+    "sphinx_copybutton>=0.5.0",
+    "nbsphinx>=0.9",
+    "ipython",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/chitra-lab/SAFFRON"
+
 [tool.setuptools.packages.find]
 include = ["saffron*"]
