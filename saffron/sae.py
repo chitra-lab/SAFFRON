@@ -315,15 +315,10 @@ def train_sae(
     seed: int = 0,
     verbose: bool = True,
 ) -> SAEResult:
-    """Train a Matryoshka/(Batch)TopK SAE on an arbitrary embedding matrix `X`.
-
-    `X` can be dense foundation-model embeddings or raw (log-normalized) gene
-    expression — the same training routine works for either.
-
-    For D-dim input, `latent_dim` defaults to `4*D` and `k` defaults to
-    `round(0.06 * latent_dim)` (~6% active fraction). `matryoshka_dims` defaults to
-    `[latent_dim/4, latent_dim/2, latent_dim]` when not given.
-    """
+    """Train a Matryoshka/(Batch)TopK SAE on an arbitrary embedding matrix `X` (dense
+    embeddings or raw log-normalized gene expression). For D-dim input, `latent_dim`
+    defaults to `4*D`, `k` to `round(0.06 * latent_dim)`, and `matryoshka_dims` to
+    `[latent_dim/4, latent_dim/2, latent_dim]`."""
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     set_seed(seed)
 

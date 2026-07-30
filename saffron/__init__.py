@@ -3,7 +3,10 @@ SAFFRON — a Sparse Autoencoder Framework For Representing Omics Natural variat
 """
 
 from .correlate import CorrelationResult, spearman_scan, top_features
-from .omp import OMPCurveResult, OMPReconstruction, OMPSelection, omp_r2_curve, omp_reconstruct, omp_select
+from .omp import (
+    OMPCurveResult, OMPReconstruction, OMPSelection,
+    omp_active_mask, omp_r2_curve, omp_reconstruct, omp_select,
+)
 from .saffron import SAFFRON, SAFFRONResult
 from .sae import SAEResult, SparseAutoencoder, load_checkpoint, save_checkpoint, train_sae
 from .utils import (
@@ -28,6 +31,7 @@ __all__ = [
     "omp_r2_curve",
     "omp_select",
     "omp_reconstruct",
+    "omp_active_mask",
     "select_domains",
     "to_dense",
     "gene_row",

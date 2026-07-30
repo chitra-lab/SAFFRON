@@ -50,15 +50,30 @@ def to_dense(X) -> np.ndarray:
 
 
 def gene_row(adata, gene: str, tau_key: str = "isodepth", spatial_key: str = "spatial",
-             reconstructed: np.ndarray | None = None) -> dict:
+             reconstructed: np.ndarray | None = None, reconstructed_mask: np.ndarray | None = None,
+             color: str | None = None, group: np.ndarray | None = None,
+             group_colors: dict | None = None) -> dict:
     """Build one `plot_gene_tracks` row for `gene`'s expression in `adata`, against
-    `adata.obs[tau_key]` and, if given, a `reconstructed` axis array."""
+    `adata.obs[tau_key]` and an optional `reconstructed` axis. `reconstructed_mask` excludes
+    points from that axis's trend line only; `group`/`group_colors` color the axis scatters
+    by category instead of by `color`."""
     idx = list(adata.var_names).index(gene)
     expr = to_dense(adata.X[:, idx]).ravel()
     axes = {tau_key: adata.obs[tau_key].values}
+    trend_mask = {}
     if reconstructed is not None:
-        axes["reconstructed axis"] = reconstructed
-    return {"label": gene, "spatial": adata.obsm[spatial_key], "expr": expr, "axes": axes}
+        axes["reconstructed axis"] = np.asarray(reconstructed, dtype=np.float64)
+        if reconstructed_mask is not None:
+            trend_mask["reconstructed axis"] = np.asarray(reconstructed_mask, dtype=bool)
+    row = {"label": gene, "spatial": adata.obsm[spatial_key], "expr": expr, "axes": axes}
+    if trend_mask:
+        row["trend_mask"] = trend_mask
+    if color is not None:
+        row["color"] = color
+    if group is not None and group_colors is not None:
+        row["group"] = np.asarray(group)
+        row["group_colors"] = dict(group_colors)
+    return row
 
 
 def norm01(vals: np.ndarray) -> np.ndarray:
@@ -145,15 +160,15 @@ def plot_spatial_scatter(adata, panels: dict, spatial_key: str = "spatial", cmap
     return fig, axes
 
 
-def _moving_avg_trend(x: np.ndarray, y: np.ndarray, frac: float = 0.35):
-    """Sort by `x` and smooth `y` with a centered moving average over a `frac` fraction
-    of the points; returns (sorted_x, smoothed_y)."""
-    order = np.argsort(x)
-    xs, ys = x[order], y[order]
-    window = max(3, int(round(frac * len(xs))) | 1)
-    half = window // 2
-    trend = np.array([ys[max(0, i - half):i + half + 1].mean() for i in range(len(xs))])
-    return xs, trend
+def _trend_line(x: np.ndarray, y: np.ndarray, frac: float = 0.35, mask: np.ndarray | None = None):
+    """LOESS-smoothed trend of `y` vs `x`. If `mask` is given and leaves at least 20 points,
+    the fit uses only those points; otherwise it uses all of them. Returns (sorted_x, smoothed_y)."""
+    from statsmodels.nonparametric.smoothers_lowess import lowess
+
+    if mask is not None and np.sum(mask) >= 20:
+        x, y = x[mask], y[mask]
+    fit = lowess(y, x, frac=frac, return_sorted=True)
+    return fit[:, 0], fit[:, 1]
 
 
 def _auto_dot_size(ax, spatial: np.ndarray, fill_frac: float = 0.85) -> float:
@@ -172,13 +187,9 @@ def plot_gene_tracks(rows: list[dict], cmap: str = "viridis", dot_size: float | 
                       trend_frac: float = 0.35, figsize: tuple | None = None,
                       suptitle: str | None = None):
     """One row per entry of `rows`: a spatial scatter of expression, plus a scatter and
-    moving-average trend line against every array in that entry's `axes`.
-
-    Each entry is a dict with keys `label`, `spatial` (N, 2), `expr` (N,), and `axes`
-    (an ordered dict of axis-label -> (N,) array, e.g. `{"isodepth": ..., "reconstructed axis": ...}`).
-    `dot_size`, if not given, is chosen automatically per row from the spacing of `spatial`
-    so neighboring points don't overlap.
-    """
+    LOESS trend line against every array in that entry's `axes` (values normalized to [0, 1]).
+    Each entry needs `label`, `spatial`, `expr`, `axes`, and may set `trend_mask`, `color`,
+    and `group`/`group_colors`; see `gene_row` for how these are built."""
     import matplotlib.pyplot as plt
 
     n_rows = len(rows)
@@ -189,8 +200,10 @@ def plot_gene_tracks(rows: list[dict], cmap: str = "viridis", dot_size: float | 
     colors = plt.get_cmap("tab10").colors
 
     for r, row in enumerate(rows):
-        color = colors[r % len(colors)]
-        vals = norm01(np.asarray(row["expr"], dtype=np.float64))
+        color = row.get("color") or colors[r % len(colors)]
+        raw_expr = np.asarray(row["expr"], dtype=np.float64)
+        vals = norm01(raw_expr)
+        dropout_mask = raw_expr > 0
 
         ax = axes[r, 0]
         spatial = row["spatial"]
@@ -206,13 +219,20 @@ def plot_gene_tracks(rows: list[dict], cmap: str = "viridis", dot_size: float | 
         ax.set_title(row["label"], fontsize=11, fontweight="bold", color=color, loc="left")
         fig.colorbar(sc, ax=ax, shrink=0.75)
 
+        group_colors = row.get("group_colors")
+        point_colors = ([group_colors.get(g, color) for g in row["group"]]
+                         if group_colors is not None else color)
+
         for c, (axis_label, xvals) in enumerate(row["axes"].items(), start=1):
             axc = axes[r, c]
-            xvals = np.asarray(xvals, dtype=np.float64)
-            axc.scatter(xvals, vals, s=8, alpha=0.35, color=color, linewidths=0)
-            xt, yt = _moving_avg_trend(xvals, vals, frac=trend_frac)
+            xvals = norm01(np.asarray(xvals, dtype=np.float64))
+            axc.scatter(xvals, vals, s=8, alpha=0.35, color=point_colors, linewidths=0)
+            extra = row.get("trend_mask", {}).get(axis_label)
+            mask = (dropout_mask & extra) if extra is not None else dropout_mask
+            xt, yt = _trend_line(xvals, vals, frac=trend_frac, mask=mask)
             axc.plot(xt, yt, color=color, lw=2)
-            axc.set_xlabel(axis_label)
+            axc.set_xlabel(f"{axis_label} (normalized)")
+            axc.set_xlim(-0.05, 1.05)
             axc.set_ylim(-0.05, 1.05)
             if c == 1:
                 axc.set_ylabel("expression (normalized)")

@@ -115,3 +115,9 @@ def omp_reconstruct(H: np.ndarray, tau: np.ndarray, k: int) -> OMPReconstruction
     reconstructed = pred_std * (tau.std() + 1e-12) + tau.mean()
 
     return OMPReconstruction(selected_features=selected, coefficients=coef, r2=r2, reconstructed=reconstructed)
+
+
+def omp_active_mask(H: np.ndarray, selected_features: list[int]) -> np.ndarray:
+    """Boolean mask, True where at least one of `selected_features` is nonzero in `H`."""
+    H = np.asarray(H)
+    return (H[:, selected_features] != 0).any(axis=1)

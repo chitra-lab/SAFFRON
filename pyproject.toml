@@ -15,6 +15,7 @@ dependencies = [
     "torch>=2.0",
     "anndata>=0.9",
     "matplotlib>=3.5",
+    "statsmodels>=0.14",
     "jupyter",
     "ipykernel",
 ]
